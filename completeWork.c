@@ -3,12 +3,12 @@
 #include <time.h>
 #include <math.h>
 #include <unistd.h>
-#define RED   "\x1B[31m"
+#define GRN   "\x1B[32m"
 #define BLU   "\x1B[34m"
-#define MAG   "\x1B[35m"
+#define KYEL  "\x1B[33m"
 #define RESET "\x1B[0m"
 #define L 20
-#define T 2.1
+#define T 2.5
 
 /* GLOBAL DECLARATIONS: */
 int N = L*L;
@@ -16,8 +16,11 @@ int lat[L*L];
 int XNN = 1;
 int YNN = L;
 double prob[5];            // Flip probability for given temperature
-double beta = 1. / T;     // Inverse temperature 1/kT
+double beta = 1.0 / T;     // Inverse temperature 1/kT
 int Eu = 0;                // initil energy of the sysetm
+int mag = 0;
+FILE * fp;
+int sweepsInt = 0;
 
 
 /* function declaration */
@@ -28,6 +31,7 @@ void sweep();
 void get_magnetization();
 void get_energy();
 void init_energy();
+void get_data();
 
 
 /*********************************************************************/
@@ -38,10 +42,17 @@ void main() {
     initialize_prob();
     init_energy();
 
+    fp = fopen ("magnetization.csv", "w");
+    fprintf(fp, "%s, %s\n", "sweepsTime",  "magnetization");
+
     /* run sweeps for couple of times */
-    for (int i = 0; i < 2000; i++) {
+    for (int i = 0; i < 1000; i++) {
         sweep();
     }
+
+    fclose(fp);
+    // after writing to my magnetization.csv call python
+    system("python handleData.py");
 
 }
 
@@ -85,21 +96,20 @@ void display_latttice() {
     printf("\n");
     for ( int i = 0; i < N; i++) {
         if ( i % L == 0 && i != 0) printf("\n");
-        if ( lat[i] == 1 ) printf(RED " ↑ " RESET);
+        if ( lat[i] == 1 ) printf(KYEL " ↑ " RESET);
         if ( lat[i] == -1) printf(BLU " ↓ " RESET);
     }
     printf(" \n");
+    printf(" \n");
 
-    /* print all calculated quantities of every state  */
     get_magnetization();
-    printf("Eu : %d\n", Eu );
     get_energy();
 
-    /* After printing clear the system */
-    system("clear");
-    usleep(60000);
-}
+    get_data();
 
+    system("clear");
+    usleep(90000);
+}
 
 /*********************************************************************/
 void initialize_prob() {
@@ -145,7 +155,6 @@ void sweep() {
   /* display my lattice */
   display_latttice(lat);
 
-
 };
 
 /**************************************************
@@ -189,15 +198,13 @@ void get_energy() {
 
       /* Decide whether to flip the spin */
       if (delta <= 0) {
-        Ev = Eu + delta;
-        Eu =  Ev;
+        Eu += delta;
     } else if (1.0 * rand() / RAND_MAX <  prob[delta]) {
-        Ev = Eu + delta;
-        Eu = Ev;
+        Eu += delta;
       }
     }
 
-    printf("Ev = Eu + delta: %d\n", Ev  );
+    printf("Ev = Eu + delta: %d\n", Eu  );
 
 
 }
@@ -206,9 +213,15 @@ void get_energy() {
     get the magnetization
 ***************************************************/
 void get_magnetization() {
-    int mag = 0;
+    mag = 0;
     for ( int i = 0; i < N; i++) {
         mag = mag + lat[i];
     }
-    printf("Magnetization: %d\n", mag );
+    printf("Magnetization: %f\n", 1.0*mag/N );
+}
+
+
+void get_data() {
+    sweepsInt += 1;
+    fprintf(fp, "%d, %f\n", sweepsInt,  1.0*mag/N );
 }
