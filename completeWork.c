@@ -3,25 +3,32 @@
 #include <time.h>
 #include <math.h>
 #include <unistd.h>
-#define GRN   "\x1B[32m"
-#define BLU   "\x1B[34m"
-#define KYEL  "\x1B[33m"
+#include "Classes.h"
+#define KWHT  "\x1B[37m"
+#define KRED  "\x1B[31m"
+#define KBLU  "\x1B[34m"
 #define RESET "\x1B[0m"
-#define L 20
-#define T 2.5
+#define L 25
+#define T 0.5
 
 /* GLOBAL DECLARATIONS: */
 int N = L*L;
 int lat[L*L];
 int XNN = 1;
 int YNN = L;
-double prob[5];            // Flip probability for given temperature
-double beta = 1.0 / T;     // Inverse temperature 1/kT
-int Eu = 0;                // initil energy of the sysetm
+double prob[5];                              // Flip probability for given temperature
+double beta = 1.0 / T;                       // Inverse temperature 1/kT
+int sweepsInt = 0;                           // sweep time
+/* quantities i want to measure */
+int Eu = 0;
 int mag = 0;
-FILE * fp;
-int sweepsInt = 0;
-
+double c = 0;
+double Ti = T;
+double x = 0;
+/* files im writing data to  */
+FILE * fm;
+FILE * fc;
+FILE * fx;
 
 /* function declaration */
 void init_lattice();
@@ -32,6 +39,9 @@ void get_magnetization();
 void get_energy();
 void init_energy();
 void get_data();
+void get_magnetization();
+void get_magentic_susceptibility();
+void get_specific_heat();
 
 
 /*********************************************************************/
@@ -42,15 +52,25 @@ void main() {
     initialize_prob();
     init_energy();
 
-    fp = fopen ("magnetization.csv", "w");
-    fprintf(fp, "%s, %s\n", "sweepsTime",  "magnetization");
+    // write data to files
+    fm = fopen ("magnetization.csv", "w");
+    fprintf(fm, "%s, %s, %s\n", "sweepsTime",  "magnetization", "Temparature");
+
+    fc = fopen ("specif_heat.csv", "w");
+    fprintf(fc, " %s, %s\n", "Temperature", "specif_heat");
+
+    //fx = fopen ("magnetic_susceptibility.csv", "w");
+    //fprintf(fx, " %s, %s\n", "Temperature", "specif_heat");
 
     /* run sweeps for couple of times */
     for (int i = 0; i < 1000; i++) {
         sweep();
     }
 
-    fclose(fp);
+    // close all files
+    fclose(fm);
+    fclose(fc);
+
     // after writing to my magnetization.csv call python
     system("python handleData.py");
 
@@ -96,19 +116,28 @@ void display_latttice() {
     printf("\n");
     for ( int i = 0; i < N; i++) {
         if ( i % L == 0 && i != 0) printf("\n");
-        if ( lat[i] == 1 ) printf(KYEL " ↑ " RESET);
-        if ( lat[i] == -1) printf(BLU " ↓ " RESET);
+        if ( lat[i] == 1 ) printf(KRED " ↑ " RESET);
+        if ( lat[i] == -1) printf(KBLU " ↓ " RESET);
     }
     printf(" \n");
     printf(" \n");
 
     get_magnetization();
     get_energy();
+    get_specific_heat();
+    // now incremet temperature
+    Ti += 0.001;
+    //get_magentic_susceptibility();
 
+    /*
+        magnetic susceptibility, specific heat,  magnetization, energy(Eu)
+        all this quanties are availbale,
+        get_data() write  them into their specific files
+    */
     get_data();
 
     system("clear");
-    usleep(90000);
+    usleep(50000);
 }
 
 /*********************************************************************/
@@ -157,9 +186,7 @@ void sweep() {
 
 };
 
-/**************************************************
- initialize energy
- *******************************************/
+/*  initialize energy */
 void init_energy() {
     int nn;
     for (int k = 0; k < N; k++) {
@@ -176,9 +203,7 @@ void init_energy() {
     }
 }
 
-/**************************************************
-    get the Energy
-***************************************************/
+/* get the Energy */
 void get_energy() {
     int nn, sum, delta, Ev;
     for (int k = 0; k < N; k++) {
@@ -209,9 +234,7 @@ void get_energy() {
 
 }
 
-/**************************************************
-    get the magnetization
-***************************************************/
+/* get the magnetization */
 void get_magnetization() {
     mag = 0;
     for ( int i = 0; i < N; i++) {
@@ -220,8 +243,22 @@ void get_magnetization() {
     printf("Magnetization: %f\n", 1.0*mag/N );
 }
 
+/* specific heat */
+void get_specific_heat() {
+    double E2 = pow(Eu, 2) / N;
+    double E = pow(Eu /N, 2);
+    c = (pow(beta, 2) / N )* ( E2 - E );
+}
+
+/* magnetic susceptibility */
+void get_magentic_susceptibility() {
+
+}
 
 void get_data() {
     sweepsInt += 1;
-    fprintf(fp, "%d, %f\n", sweepsInt,  1.0*mag/N );
+    printf("time t:%d\n", sweepsInt );
+    fprintf(fm, "%d, %f, %f\n", sweepsInt,  1.0*mag/N, Ti );
+
+    fprintf(fc, "%f, %f\n", Ti, c );
 }
